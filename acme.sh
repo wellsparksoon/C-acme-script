@@ -132,6 +132,7 @@ acme_standalone(){
     WARPv6Status=$(curl -s6m8 https://www.cloudflare.com/cdn-cgi/trace -k | grep warp | cut -d= -f2)
     if [[ $WARPv4Status =~ on|plus ]] || [[ $WARPv6Status =~ on|plus ]]; then
         wg-quick down wgcf >/dev/null 2>&1
+        systemctl stop warp-go >/dev/null 2>&1
     fi
     
     ipv4=$(curl -s4m8 api64.ipify.org -k)
@@ -162,12 +163,21 @@ acme_standalone(){
     fi
     
     if [[ -n $(echo $domainIP | grep nginx) ]]; then
+        if [[ -n $(type -P wg-quick) && -n $(type -P wgcf) ]]; then
+            wg-quick up wgcf >/dev/null 2>&1
+        fi
+        if [[ -a "/opt/warp-go/warp-go" ]]; then
+            systemctl start warp-go 
+        fi
         yellow "域名解析失败, 请检查域名是否正确填写或等待解析完成再执行脚本"
         exit 1
     elif [[ -n $(echo $domainIP | grep ":") || -n $(echo $domainIP | grep ".") ]]; then
         if [[ $domainIP != $ipv4 ]] && [[ $domainIP != $ipv6 ]]; then
             if [[ -n $(type -P wg-quick) && -n $(type -P wgcf) ]]; then
                 wg-quick up wgcf >/dev/null 2>&1
+            fi
+            if [[ -a "/opt/warp-go/warp-go" ]]; then
+                systemctl start warp-go 
             fi
             green "域名 ${domain} 目前解析的IP: ($domainIP)"
             red "当前域名解析的IP与当前VPS使用的真实IP不匹配"
@@ -237,6 +247,12 @@ checktls() {
         if [[ -s /root/cert.crt && -s /root/private.key ]]; then
             if [[ -n $(type -P wg-quick) && -n $(type -P wgcf) ]]; then
                 wg-quick up wgcf >/dev/null 2>&1
+            fi
+            if [[ -n $(type -P wg-quick) && -n $(type -P wgcf) ]]; then
+                wg-quick up wgcf >/dev/null 2>&1
+            fi
+            if [[ -a "/opt/warp-go/warp-go" ]]; then
+                systemctl start warp-go 
             fi
             sed -i '/--cron/d' /etc/crontab >/dev/null 2>&1
             echo "0 0 * * * root bash /root/.acme.sh/acme.sh --cron -f >/dev/null 2>&1" >> /etc/crontab
@@ -326,6 +342,7 @@ menu() {
     echo -e "#                   ${RED}Acme  证书一键申请脚本${PLAIN}                  #"
     echo -e "# ${GREEN}作者${PLAIN}: MisakaNo の 小破站                                  #"
     echo -e "# ${GREEN}博客${PLAIN}: https://blog.misaka.rest                            #"
+    echo -e "# ${GREEN}GitHub 项目${PLAIN}: https://github.com/blog-misaka               #"
     echo -e "# ${GREEN}GitLab 项目${PLAIN}: https://gitlab.com/misakablog                #"
     echo -e "# ${GREEN}Telegram 频道${PLAIN}: https://t.me/misakablogchannel             #"
     echo -e "# ${GREEN}Telegram 群组${PLAIN}: https://t.me/+CLhpemKhaC8wZGIx             #"
